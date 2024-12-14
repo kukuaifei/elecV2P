@@ -13,11 +13,11 @@ const { context } = require('./context')
 const { CONFIG, CONFIG_Port } = require('../config')
 
 const CONFIG_RUNJS = {
-  timeout: 5000,          // JS 运行时间。单位：毫秒
-  intervals: 86400,       // 远程 JS 更新时间，单位：秒。 默认：86400(一天)。0: 有则不更新
-  numtofeed: 50,          // 每运行 { numtofeed } 次 JS, 添加一个 Feed item。0: 不通知
+  timeout: 5000,          // 脚本运行超时时间。单位：毫秒
+  intervals: 86400,       // 远程脚本最低更新时间间隔。单位：秒。 默认：86400(一天)。0: 有则不更新
+  numtofeed: 50,          // 每运行 { numtofeed } 次脚本, 添加一个 Feed item。0: 不通知
 
-  jslogfile: true,        // 是否将 JS 运行日志保存到 logs 文件夹
+  jslogfile: true,        // 是否将脚本运行日志保存到 logs 文件夹
   eaxioslog: false,       // 打印/保存网络请求 url 到日志
   proxy: true,            // 是否应用网络请求设置中的代理（如有）
 
@@ -34,25 +34,25 @@ const efhcache = new Map();
 const scriptcache = new Map();
 
 // 初始化脚本运行
-if (CONFIG.init?.runjs) {
+if (CONFIG.init?.runjs && CONFIG.init.runjsenable !== false) {
   CONFIG.init.runjs.split(/ ?, ?|，/).filter(s=>s).forEach(js=>{
     runJSFile(js, { from: 'initialization' })
   })
 }
 
-// websocket/通知触发 JS
+// websocket/通知触发脚本
 wsSer.recv.runjs = (data={})=>runJSFile(data.fn, data.addContext)
 
 const runstatus = {
-  start: now(null, false),
+  start: now(),
   times: CONFIG_RUNJS.numtofeed,
   detail: {},
   total: 0
 }
 
 /**
- * JS 运行次数统计
- * @param  {string} filename JS 文件名
+ * 脚本运行次数统计
+ * @param  {string}    filename     脚本文件名
  * @return {none}
  */
 async function taskCount(filename) {
@@ -77,7 +77,7 @@ async function taskCount(filename) {
     data: { total: runstatus.total, detail: runstatus.detail }
   })
 
-  clog.debug('JS run status：', runstatus)
+  clog.debug('script run status:', runstatus)
   if (runstatus.times === 0) {
     let des = []
     for (let jsname in runstatus.detail) {
@@ -86,7 +86,7 @@ async function taskCount(filename) {
     runstatus.detail = {}
     feedAddItem('run script ' + CONFIG_RUNJS.numtofeed + ' times', des.join(', ') + ` from ${runstatus.start}`)
     runstatus.times = CONFIG_RUNJS.numtofeed
-    runstatus.start = now(null, false)
+    runstatus.start = now()
   }
 }
 
@@ -165,12 +165,12 @@ async function efhParse(filename, { title='', type='', name } = {}) {
         $('head').append('<title>' + title + '</title>');
       }
       $('head').append(`<script>function $fend(key, data){if(!key) {let msg='a key for $fend is expect';alert(msg);return Promise.reject(msg)};return fetch('', {method: 'post',headers: {'Content-Type': 'application/json'},body: JSON.stringify({key, data})})};let $=(s,a='')=>a?document.querySelectorAll(s):document.querySelector(s);</script>`);
-      let bcode = $("script[runon='elecV2P']");
+      let bcode = $("script[favend]");
       if (bcode.length === 0) {
-        bcode = $("script[runon='backend']");
-      }
-      if (bcode.length === 0) {
-        bcode = $("script[favend]")
+        bcode = $("script[runon='elecV2P']");
+        if (bcode.length === 0) {
+          bcode = $("script[runon='backend']");
+        }
       }
       if (bcode.attr('src')) {
         // src 开头 /|./|空，即绝对/相对目录处理
@@ -199,11 +199,11 @@ async function efhParse(filename, { title='', type='', name } = {}) {
 }
 
 /**
- * JS 执行函数
- * @param  {string} filename   JS 文件名
- * @param  {string} jscode     JS 执行代码
- * @param  {object} addContext 附加环境变量 context
- * @return {promise}     JS 执行结果
+ * 脚本执行函数
+ * @param  {string} filename   脚本文件名
+ * @param  {string} jscode     脚本执行代码
+ * @param  {object} addContext 附加执行参数 context
+ * @return {promise}     脚本执行结果
  */
 function runJS(filename, jscode, addContext={}) {
   if (!filename || !jscode) {
@@ -214,28 +214,10 @@ function runJS(filename, jscode, addContext={}) {
   taskCount(filename)
 
   let fconsole = null,
-      bGrant   = false,
-      compatible = {
-        surge: false,          // Surge 脚本调试模式
-        quanx: false,          // Quanx 脚本调试模式。都为 false 时，会进行自动判断
-        nodejs: false,         // nodejs 运行模式，不对脚本进行兼容判断
-        require: false         // 启用 nodeJS require 函数。不开启时会自动进行判断
-      }
+      bGrant   = false
   if (/^\/\/ +@grant/m.test(jscode)) {
     bGrant = true
 
-    // compatible 判断
-    if (/^\/\/ +@grant +nodejs$/m.test(jscode)) {
-      compatible.nodejs = true
-    } else if (/^\/\/ +@grant +surge$/m.test(jscode)) {
-      compatible.surge = true
-    } else if (/^\/\/ +@grant +quanx$/m.test(jscode)) {
-      compatible.quanx = true
-    }
-    // require 可与以上模式同时存在
-    if (/^\/\/ +@grant +require$/m.test(jscode)) {
-      compatible.require = true
-    }
     // 日志显示类型判断
     if (/^\/\/ +@grant +(still|silent)$/m.test(jscode)) {
       clog.notify('log of', filename, 'is disabled')
@@ -253,37 +235,14 @@ function runJS(filename, jscode, addContext={}) {
   CONTEXT.final.__filename = Jsfile.get(filename, 'path')
   CONTEXT.final.__taskname = addContext.__taskname
   CONTEXT.final.__taskid   = addContext.__taskid
-
-  if (compatible.nodejs) {
-    fconsole.debug(filename, 'run in nodejs mode')
-    CONTEXT.final.module = module
-    CONTEXT.final.process = process
-    CONTEXT.final.exports = exports
-    CONTEXT.final.Buffer = Buffer
-    CONTEXT.final.TextEncoder = TextEncoder
-    CONTEXT.final.TextDecoder = TextDecoder
-
-    CONTEXT.final.URL = URL
-    CONTEXT.final.URLSearchParams = URLSearchParams
-  } else if (compatible.surge || (compatible.quanx === false && /\$httpClient|\$persistentStore|\$notification/.test(jscode))) {
-    fconsole.debug(`${filename} compatible with Surge script`)
-    CONTEXT.add({ surge: true })
-  } else if (compatible.quanx || /\$task\.fetch|\$prefs|\$notify/.test(jscode)) {
-    fconsole.debug(`${filename} compatible with QuantumultX script`)
-    CONTEXT.add({ quanx: true })
-  } else if (!compatible.require && /require/.test(jscode)) {
-    compatible.require = true
+  CONTEXT.final.require = (request)=>{
+    fconsole.notify('require external resource:', request)
+    request = require.resolve(request, { paths: [CONTEXT.final.__dirname] })
+    return require(request)
   }
-  if (compatible.nodejs || compatible.require) {
-    CONTEXT.final.require = (request)=>{
-      fconsole.notify('require external resource:', request)
-      request = require.resolve(request, { paths: [CONTEXT.final.__dirname] })
-      return require(request)
-    }
-    CONTEXT.final.require.resolve = (request)=>require.resolve(request, { paths: [CONTEXT.final.__dirname] })
-    CONTEXT.final.require.clear = (request)=>delete require.cache[require.resolve(request, { paths: [CONTEXT.final.__dirname] })]
-    CONTEXT.final.require.cache = require.cache
-  }
+  CONTEXT.final.require.resolve = (request)=>require.resolve(request, { paths: [CONTEXT.final.__dirname] })
+  CONTEXT.final.require.clear = (request)=>delete require.cache[require.resolve(request, { paths: [CONTEXT.final.__dirname] })]
+  CONTEXT.final.require.cache = require.cache
 
   let addtimeout = addContext.timeout, addfrom = addContext.from;
   switch (addfrom) {
@@ -293,8 +252,14 @@ function runJS(filename, jscode, addContext={}) {
   default:
     break;
   }
-  if (!addContext.$env) {
-    CONTEXT.final.$env = { ...process.env, ...addContext.env }
+  CONTEXT.final.$env = {
+    ...process.env,
+    lang: CONFIG.lang,
+    userid: CONFIG_Port.userid,
+    vernum: CONFIG_Port.vernum,
+    version: CONFIG_Port.version,
+    ...addContext.env,
+    ...addContext.$env,
   }
   CONTEXT.final.$fend.clear = ()=>{
     fconsole.info('efh file cache cleared');
@@ -334,8 +299,9 @@ function runJS(filename, jscode, addContext={}) {
           fconsole.error(msg);
           return Promise.reject(Error(msg));
         }
+        fconsole.notify('$webhook function run, type:', payload.type)
         return eAxios({
-          url: 'http://localhost:' + CONFIG_Port.webst + '/webhook',
+          url: `${CONFIG.webUI.tls?.enable ? 'https' : 'http'}://localhost:${CONFIG_Port.webst}/webhook`,
           method: 'post',
           headers: {
             'Content-Type': 'application/json; charset=UTF-8'
@@ -348,13 +314,14 @@ function runJS(filename, jscode, addContext={}) {
 
   delete addContext.cb
   delete addContext.env
+  delete addContext.$env
   delete addContext.type
   delete addContext.from
   delete addContext.rename
   delete addContext.timeout
   delete addContext.__taskid
   delete addContext.__taskname
-  CONTEXT.add({ addContext })
+  Object.assign(CONTEXT.final, addContext)
 
   return new Promise((resolve, reject)=>{
     try {
@@ -407,7 +374,7 @@ function runJS(filename, jscode, addContext={}) {
 
 /**
  * runJSFile 函数 获取初始的 filename rawcode addContext
- * @param     {string}    filename      文件名。当 addContext.type = rawcode 时表示此项为纯 JS 代码
+ * @param     {string}    filename      文件名。当 addContext.type = rawcode 时表示此项为原生代码
  * @param     {object}    addContext    附加环境变量 context
  * @return    {Promise}                 runJS() 的结果
  */
@@ -429,7 +396,7 @@ async function runJSFile(filename, addContext={}) {
     }
     addContext.$request.headers = new Proxy(header, {
       get(target, prop){
-        if (typeof(prop) !== 'string') return ''
+        if (typeof(prop) !== 'string') return Reflect.get(target, prop)
         return target[prop] ?? target[prop.toLowerCase()]
       }
     })
@@ -442,7 +409,7 @@ async function runJSFile(filename, addContext={}) {
     }
     addContext.$response.headers = new Proxy(header, {
       get(target, prop){
-        if (typeof(prop) !== 'string') return ''
+        if (typeof(prop) !== 'string') return Reflect.get(target, prop)
         return target[prop] ?? target[prop.toLowerCase()]
       }
     })
@@ -511,8 +478,11 @@ async function runJSFile(filename, addContext={}) {
           resolve(efhc.html);
         }
         let res = efhc.html;
-        if (res.length > 480) {
+        if (CONFIG.gloglevel === 'debug') {
           runclog.debug(`run ${efhname} result: ${res.slice(0, 1200)}`);
+          return;
+        }
+        if (res.length > 480) {
           res = res.slice(0, 480) + '...';
         }
         runclog.info(`run ${efhname} result: ${res}`);
@@ -556,7 +526,7 @@ async function runJSFile(filename, addContext={}) {
     if (scriptcache.has(filename)) {
       scache = scriptcache.get(filename)
       if (scache.date === sdate) {
-        clog.debug(`get ${filename} cache code`)
+        clog.debug(`get ${filename} from cache`)
         rawcode = scache.code
       } else {
         // cache outdate
@@ -600,8 +570,11 @@ async function runJSFile(filename, addContext={}) {
       resolve(res)
       if (res !== undefined) {
         res = sString(res)
-        if (res.length > 480) {
+        if (CONFIG.gloglevel === 'debug') {
           runclog.debug(`run ${filename} result: ${res.slice(0, 1200)}`)
+          return
+        }
+        if (res.length > 480) {
           res = res.slice(0, 480) + '...'
         }
         runclog.info(`run ${filename} result: ${res}`)

@@ -13,7 +13,7 @@ function sType(obj) {
   if (Buffer.isBuffer(obj)) {
     return 'buffer'
   }
-  return Object.prototype.toString.call(obj).slice(8, -1).toLocaleLowerCase()
+  return Object.prototype.toString.call(obj).slice(8, -1).toLowerCase() || 'object'
 }
 
 /**
@@ -70,9 +70,13 @@ function sString(obj) {
     return obj.trim()
   case 'map':
   case 'set':
-  case 'buffer':
     return JSON.stringify({
       type, data: Array.from(obj)
+    })
+  case 'buffer':
+    return JSON.stringify({
+      type, encode: 'base64',
+      data: obj.toString('base64'),
     })
   case 'array':
   case 'object':
@@ -168,6 +172,13 @@ function errStack(error, stack = false) {
       return 'line ' + errline[1] + ' error: ' + error.message
     }
     return error.stack
+  }
+  if (error.config) {
+    return `${error.config.method} ${error.config.url} Error: ${error.message}`
+  }
+  if (error.request) {
+    const req = error.request
+    return `${req.method} ${req.protocol}//${req.host}${req.path} Error: ${error.message}`
   }
   if (error.message) {
     return error.message
@@ -371,4 +382,31 @@ function ebufDecrypt(strb64, key = 'elecV2', encode = 'base64') {
   return de_bfs_str.toString();
 }
 
-module.exports = { euid, UUID, iRandom, sJson, sString, strJoin, bEmpty, sUrl, sType, sBool, errStack, kSize, nStatus, escapeHtml, surlName, progressBar, btoa, atob, sbufBody, sParam, sTypetoExt, sHash, sHmac, ebufEncrypt, ebufDecrypt }
+function htmlTemplate(body='', head='', title='') {
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#003153">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>${title || 'elecV2P - customize personal network'}</title>
+  <style type="text/css">
+  body{width: 100%;height: 100vh;margin: 0;padding: 0;text-align: center;background-image: linear-gradient(110deg,#003153B8 25%,transparent 0),linear-gradient(315deg,transparent 30%,#A7A8BD88 30%),linear-gradient(45deg,transparent 66%,#2890EEB8 0),linear-gradient(333deg,#66FF0088 53%,transparent 0);color: #FAFAFD;}
+  </style>
+  ${head}
+</head>
+<body>
+  ${body}
+</body>
+</html>`
+}
+
+function bBufType(contentype='') {
+  if (!contentype) {
+    return false
+  }
+  return /^(audio|video|image|multipart|font|model)|(ogg|stream|protobuf)$/.test(contentype)
+}
+
+module.exports = { euid, UUID, iRandom, sJson, sString, strJoin, bEmpty, sUrl, sType, sBool, errStack, kSize, nStatus, escapeHtml, surlName, progressBar, btoa, atob, sbufBody, sParam, sTypetoExt, sHash, sHmac, ebufEncrypt, ebufDecrypt, htmlTemplate, bBufType }

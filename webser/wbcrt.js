@@ -7,7 +7,7 @@ const { clearCrt, newRootCrt, cacheClear, crt_path, crtHost } = require('../func
 
 module.exports = app => {
   app.get('/crt', (req, res)=>{
-    clog.notify((req.headers['x-forwarded-for'] || req.connection.remoteAddress), 'get rootCA.crt', req.query.type)
+    clog.notify((req.headers['x-forwarded-for'] || req.connection.remoteAddress), 'get rootCA.crt', req.query.type || 'pem')
     switch (req.query.type) {
     case 'p12':
       crt_path.p12
@@ -26,7 +26,7 @@ module.exports = app => {
         })
       break
     default:
-      res.download(crt_path.any + '/rootCA.crt')
+      res.download(crt_path.crt)
     }
   })
 
@@ -99,7 +99,7 @@ module.exports = app => {
   app.get('/crt/new/:hostname', (req, res)=>{
     const hostname = encodeURI(req.params.hostname)
     crtHost(hostname).then(root_dir=>{
-      res.set('Content-Disposition', `attachment; filename="${hostname}.zip"`)
+      res.set('Content-Disposition', `attachment; filename="${hostname}.crt.zip"`)
       const crt_host = `${root_dir}/${hostname}`
       res.end(file.zip([`${crt_host}.crt`, `${crt_host}.key`]))
     }).catch(error=>{
