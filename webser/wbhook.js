@@ -2,13 +2,12 @@ const os = require('os')
 const { taskMa, exec, crtHost } = require('../func')
 const { CONFIG_RULE, runJSFile } = require('../script')
 
-const { logger, LOGFILE, Jsfile, list, nStatus, sString, sType, surlName, sBool, stream, downloadfile, now, checkupdate, store, kSize, errStack, sbufBody, wsSer, validate_status, sJson } = require('../utils')
+const { logger, LOGFILE, Jsfile, list, nStatus, sString, sType, surlName, sBool, stream, downloadfile, now, checkupdate, store, kSize, errStack, sbufBody, wsSer, validate_status, sJson, hDays } = require('../utils')
 const clog = new logger({ head: 'webhook', level: 'debug' })
 
-const { CONFIG } = require('../config')
+const { CONFIG, CONFIG_Port } = require('../config')
 
 function handler(req, res){
-  res.set({ 'Access-Control-Allow-Origin': '*' })
   if (!CONFIG.wbrtoken) {
     return res.status(500).json({
       rescode: -1,
@@ -218,10 +217,10 @@ function handler(req, res){
   case 'status':
     clog.info(clientip, 'Get server status');
     let status = nStatus()
-    status.start = now(CONFIG.start, false, 0)
-    status.uptime = ((Date.now() - Date.parse(status.start))/1000/60/60).toFixed(2) + ' hours'
+    status.start = now(CONFIG_Port.start, false, 0)
+    status.uptime = hDays(CONFIG_Port.start)
     status.nodejs = process.version
-    status.version = CONFIG.version
+    status.version = CONFIG_Port.version
     status.clients = wsSer.recver.size
     status.scripts = Jsfile.get('list').length
     status.task = taskMa.status()
@@ -356,9 +355,9 @@ function handler(req, res){
   case 'info':
     let elecV2PInfo = {
       elecV2P: {
-        version: CONFIG.version,
-        start: now(CONFIG.start, false, 0),
-        uptime: ((Date.now() - CONFIG.start)/1000/60/60).toFixed(2) + ' hours',
+        version: CONFIG_Port.version,
+        start: now(CONFIG_Port.start, false, 0),
+        uptime: ((Date.now() - CONFIG_Port.start)/1000/60/60).toFixed(2) + ' hours',
         clients: wsSer.recver.size,
         taskStatus: taskMa.status(),
         memoryUsage: nStatus(),
@@ -545,31 +544,6 @@ function handler(req, res){
       rescode: 0,
       message: 'validate black status is reset'
     });
-    break
-  case 'cors':
-    if (!CONFIG.cors) {
-      CONFIG.cors = {
-        enable: false,
-        origin: ''
-      }
-    }
-    let corsmsg = ''
-    if (rbody.enable !== undefined) {
-      CONFIG.cors.enable = sBool(rbody.enable)
-      corsmsg += 'CORS ' + (CONFIG.cors.enable ? 'enabled' : 'disabled')
-    }
-    if (rbody.origin !== undefined) {
-      CONFIG.cors.origin = rbody.origin
-      corsmsg += '\nCORS allow origin set to ' + CONFIG.cors.origin
-    }
-    if (corsmsg) {
-      list.put('config.json', CONFIG)
-    }
-    res.json({
-      rescode: 0,
-      message: corsmsg.trim() || 'Get cors config',
-      resdata: CONFIG.cors
-    })
     break
   case 'newcrt':
     if (rbody.hostname) {

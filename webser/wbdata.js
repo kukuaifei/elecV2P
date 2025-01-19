@@ -18,10 +18,10 @@ module.exports = app => {
           jslistslen: Jsfile.get('list').length,
           taskstatus: taskMa.status(),
           mitmhostlen: CONFIG_RULE.mitmhost.length,
-          version: CONFIG.version,
-          start: CONFIG.start,
+          version: CONFIG_Port.version,
+          start: CONFIG_Port.start,
           anyproxy: CONFIG_Port.anyproxy,
-          newversion: CONFIG.newversion,
+          newversion: CONFIG_Port.newversion,
           sysinfo: sysInfo(),
           enablelist: {
             rule: CONFIG_RULE.ruleenable,
@@ -31,7 +31,7 @@ module.exports = app => {
           menunav: CONFIG.webUI?.nav,
           theme: CONFIG.webUI?.theme,
           logo: CONFIG.webUI?.logo,
-          userid: CONFIG.userid,
+          userid: CONFIG_Port.userid,
           lang: CONFIG.lang,
         })
         if (req.query.check) {
@@ -56,6 +56,8 @@ module.exports = app => {
           enable: mlist?.enable !== false,
           eproxy: CONFIG_Port.anyproxy,
           crtinfo: crtInfo(),
+          pacproxy: CONFIG.pac?.proxy,
+          pacfinal: CONFIG.pac?.final,
         })
         break
       case 'filter':
@@ -90,12 +92,12 @@ module.exports = app => {
         }
         break
       case 'sponsors':
-        eAxios(`https://sponsors.elecv2.workers.dev/${ req.query.param || '' }?userid=${ CONFIG.userid }`).then(response=>{
+        eAxios(`https://sponsors.elecv2.workers.dev/${ req.query.param || '' }?userid=${ CONFIG_Port.userid }`).then(response=>{
           res.json({
             rescode: 0,
             message: 'success get sponsors list',
             resdata: {
-              userid: CONFIG.userid,
+              userid: CONFIG_Port.userid,
               sponsors: response.data,
             }
           })
@@ -226,10 +228,12 @@ module.exports = app => {
             message: 'success saved mitmhost list ' + enhost.length + '/' + mhost.length
           })
           CONFIG_RULE.mitmhostenable = req.body.mitmhostenable !== false
-          if (CONFIG_RULE.mitmhostenable && enhost.indexOf('*') !== -1) {
+          if (CONFIG_RULE.mitmhostenable) {if (enhost.indexOf('*') !== -1) {
             clog.info('MITM enable for all host')
             CONFIG_RULE.mitmtype = 'all'
-          }
+          } else {
+            CONFIG_RULE.mitmtype = 'list'
+          }}
           CONFIG_RULE.mitmhost = enhost
           clog.info('clear mitmhost match results cache')
           CONFIG_RULE.cache.host.clear()

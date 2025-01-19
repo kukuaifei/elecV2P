@@ -27,7 +27,8 @@ const CONFIG_Axios = {
   only: {                   // 启用时，表示仅允许符合该规则的 url 通过
     enable: false,
     regexp: ''
-  }
+  },
+  "reject_unauthorized": true
 }
 
 if (CONFIG.CONFIG_Axios) {
@@ -39,6 +40,7 @@ if (CONFIG.CONFIG_Axios) {
     CONFIG.CONFIG_Axios.proxy = CONFIG_Axios.proxy
   }
   Object.assign(CONFIG_Axios, CONFIG.CONFIG_Axios)
+  process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = CONFIG_Axios.reject_unauthorized === false ? 0 : 1
 }
 // 同步 CONFIG 数据
 CONFIG.CONFIG_Axios = CONFIG_Axios
@@ -255,7 +257,7 @@ function downloadfile(durl, options, cb) {
       const total = Number(response.headers['content-length']);
       if (sType(cb) === 'function') {
         let dsize = 0, step = 0;
-        let bname = fname.length < 20 ? fname : fname.slice(0, 16) + '...';
+        let bname = fname.length < 23 ? fname : fname.slice(0,7) + '...' + fname.slice(-12);
         Promise.resolve(cb({
           progress: progressBar({ step: 0, total: 1, name: bname }),
           name: fname, start: dest,
@@ -314,7 +316,7 @@ async function checkupdate(force = false){
   if (force === false && CONFIG.update_check === false) {
     clog.debug('skip update check')
     return {
-      version: CONFIG.version
+      version: CONFIG_Port.version
     }
   }
   if (force === false
@@ -347,17 +349,17 @@ async function checkupdate(force = false){
     }
   }
 
-  if (body.version && Number(body.version.replace(/\.|v/g, '')) > CONFIG.vernum) {
+  if (body.version && Number(body.version.replace(/\D/g, '')) > CONFIG_Port.vernum) {
     body.update = true
     body.updateversion = body.version
-    CONFIG.newversion = body.updateversion
+    CONFIG_Port.newversion = body.updateversion
     body.message = `a new version of elecV2P v${body.updateversion} is available`
   } else {
     body.update = false
-    body.message = body.message || 'elecV2P v' + CONFIG.version + ' is the lastest version'
+    body.message = body.message || 'elecV2P v' + CONFIG_Port.version + ' is the lastest version'
   }
   clog.notify(body.message)
-  body.version = CONFIG.version
+  body.version = CONFIG_Port.version
   eData.update.body = body
   eData.update.lastcheck = Date.now()
   return eData.update.body

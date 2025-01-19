@@ -3,10 +3,12 @@
 <div style="background-color: #1890ff;list-style: none;border-radius: 8px;padding: 0;margin: 0;">
 <h3 style="font-size: 24px;text-align: center;border-bottom: 1px solid;color: white;padding: 6px;margin-bottom: 0;">Todo</h3>
 <pre style="white-space: pre-line;word-break: break-word;margin: 0;padding: 6px 10px;text-align: left;display: flex;">
-- [ ] 临时 token 访问
 - [ ] EAPP 订阅/分类
+- [ ] RULE mock 修改方式
+- [ ] RULE repeat 网络请求
 - [ ] EFSS 自定义文件处理脚本
-- [ ] 引入 $crypto 用于哈希加密
+- [ ] 自定义常用功能的快捷键
+- [ ] require 自定义可运行/禁用模块
 </pre>
 </div>
 <div style="background-color: #003153;margin-top: 12px;border-radius: 8px;">
@@ -25,6 +27,28 @@
 <div style="width: 50%;background-color: #2d8800;border-radius: 8px;margin: 0 12px; max-height: 480px; overflow: hidden auto;">
 <h3 style="font-size: 24px;text-align: center;border-bottom: 1px solid;color: white;padding: 6px;margin-bottom: 0;">Done</h3>
 <pre style="margin-bottom: 0;white-space: pre-line;word-break: break-word;margin: 0;padding: 6px 10px;text-align: left;display: flex;">
+- [x] RULES 默认不对 body 进行匹配
+- [x] 可处理最大返回数据大小修改为 15M
+- [x] ws 断线后 LOGO 变化
+- [x] token 登录后隐藏信息
+- [x] PAC 自动生成文件优化
+- [x] PAC 文件自动生成
+- [x] 网络请求返回结果简化
+- [x] 软更新 tags 及通知优化
+- [x] 临时 token 可限制请求方法
+- [x] 404 显示页面优化
+- [x] 403 界面增加授权登录框
+- [x] webUI 多语言优化一点点
+- [x] anyproxy 直接访问提醒
+- [x] anyproxy 默认错误页面修改
+- [x] env PROXYEN 启动时打开代理
+- [x] type protobuf body buffer
+- [x] 临时 token 访问
+- [x] 默认 CORS Origin *
+- [x] 使用 userid 作为 cookie
+- [x] CONFIG 配置文件参数优化
+- [x] 自定义规则、脚本、定时任务等保存目录
+- [x] NODE_TLS_REJECT_UNAUTHORIZED 设置
 - [x] 增加默认 EAPP 随机配色
 - [x] webUI 增加背景及其他优化
 - [x] 主题元素背景替换为文字色彩
